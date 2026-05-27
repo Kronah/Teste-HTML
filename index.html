@@ -5,13 +5,92 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Leitor de Código de Barras (Mobile)</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 16px; max-width: 520px; margin-inline: auto; }
-    #reader { width: 100%; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; }
-    .row { display: flex; gap: 8px; margin-top: 12px; }
-    button { flex: 1; padding: 12px; border: 0; border-radius: 8px; font-weight: 700; color: #fff; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 16px;
+      max-width: 560px;
+      margin-inline: auto;
+    }
+
+    #reader-wrap {
+      position: relative;
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #reader {
+      width: 100%;
+      min-height: 360px;
+    }
+
+    /* Janela visual de leitura (maior) */
+    .scan-window {
+      position: absolute;
+      left: 4%;
+      top: 25%;
+      width: 92%;
+      height: 50%;
+      border: 2px solid rgba(34, 197, 94, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.18) inset;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .2s ease;
+    }
+
+    /* Linha central piscando */
+    .scan-line {
+      position: absolute;
+      left: 6%;
+      right: 6%;
+      top: 50%;
+      height: 2px;
+      background: rgba(34, 197, 94, 0.95);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+      transform: translateY(-50%);
+      pointer-events: none;
+      opacity: 0;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: .25; }
+      50% { opacity: 1; }
+    }
+
+    #reader-wrap.scanning .scan-window,
+    #reader-wrap.scanning .scan-line {
+      opacity: 1;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      border: 0;
+      border-radius: 8px;
+      font-weight: 700;
+      color: #fff;
+    }
+
     #start { background: #2563eb; }
-    #stop { background: #dc2626; }
-    .box { margin-top: 12px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    #stop  { background: #dc2626; }
+
+    .box {
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+
     #status { font-weight: 700; color: #a16207; }
     #result { word-break: break-all; font-size: 1.05rem; margin-top: 6px; }
   </style>
@@ -19,7 +98,11 @@
 <body>
   <h2>Leitor de Código de Barras (Teste no Celular)</h2>
 
-  <div id="reader"></div>
+  <div id="reader-wrap">
+    <div id="reader"></div>
+    <div class="scan-window"></div>
+    <div class="scan-line"></div>
+  </div>
 
   <div class="row">
     <button id="start">Iniciar câmera</button>
@@ -37,6 +120,7 @@
     const resultEl = document.getElementById("result");
     const btnStart = document.getElementById("start");
     const btnStop = document.getElementById("stop");
+    const readerWrap = document.getElementById("reader-wrap");
 
     let scanner = null;
     let running = false;
@@ -54,17 +138,16 @@
         setStatus("Solicitando câmera...");
         scanner = new Html5Qrcode("reader");
 
-        // Tenta abrir câmera traseira no celular
         const cameraConfig = { facingMode: "environment" };
 
         const config = {
-          fps: 10,
+          fps: 12,
           rememberLastUsedCamera: true,
-          // Barra (retângulo mais “horizontal” ajuda barcode)
+          // Campo de detecção maior (quase tela toda, em formato de barras)
           qrbox: (vw, vh) => {
-            const w = Math.floor(Math.min(vw, 320));
-            const h = Math.floor(w * 0.45);
-            return { width: w, height: h };
+            const width = Math.floor(Math.min(vw * 0.92, 500));
+            const height = Math.floor(Math.min(vh * 0.50, 260));
+            return { width, height };
           },
           formatsToSupport: [
             Html5QrcodeSupportedFormats.EAN_13,
@@ -88,10 +171,11 @@
               if (navigator.vibrate) navigator.vibrate(120);
             }
           },
-          () => { /* ignora erros de frame sem código */ }
+          () => {}
         );
 
         running = true;
+        readerWrap.classList.add("scanning");
         setStatus("Lendo código...");
       } catch (err) {
         setStatus("Erro ao abrir câmera: " + (err?.message || err));
@@ -103,6 +187,7 @@
       await scanner.stop();
       await scanner.clear();
       running = false;
+      readerWrap.classList.remove("scanning");
       setStatus("Leitura parada.");
     }
 
