@@ -1,216 +1,116 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Leitor de Código de Barras (Celular)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leitor de Código de Barras (Mobile)</title>
   <style>
-    :root {
-      --bg: #0f172a;
-      --card: #111827;
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --ok: #22c55e;
-      --warn: #f59e0b;
-      --btn: #2563eb;
-      --btn2: #ef4444;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: linear-gradient(160deg, #020617, #0f172a);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      padding: 14px;
-    }
-
-    .app {
-      width: 100%;
-      max-width: 520px;
-      background: rgba(17,24,39,.85);
-      border: 1px solid rgba(148,163,184,.2);
-      border-radius: 16px;
-      padding: 14px;
-      backdrop-filter: blur(6px);
-    }
-
-    h1 {
-      font-size: 1.1rem;
-      margin: 0 0 10px;
-      text-align: center;
-    }
-
-    .video-wrap {
-      position: relative;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid rgba(148,163,184,.25);
-      background: #000;
-    }
-
-    video {
-      width: 100%;
-      display: block;
-      aspect-ratio: 3/4; /* melhor para celular */
-      object-fit: cover;
-      background: #000;
-    }
-
-    .scan-line {
-      position: absolute;
-      left: 10%;
-      right: 10%;
-      top: 50%;
-      height: 2px;
-      background: rgba(34,197,94,.9);
-      box-shadow: 0 0 8px rgba(34,197,94,.8);
-      animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0% { transform: translateY(-60px); opacity: .35; }
-      50% { transform: translateY(60px); opacity: 1; }
-      100% { transform: translateY(-60px); opacity: .35; }
-    }
-
-    .controls {
-      margin-top: 12px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 12px;
-      font-weight: 700;
-      color: white;
-      cursor: pointer;
-      font-size: 0.95rem;
-    }
-
-    #btnStart { background: var(--btn); }
-    #btnStop { background: var(--btn2); }
-
-    .box {
-      margin-top: 12px;
-      padding: 10px;
-      border-radius: 12px;
-      background: rgba(2,6,23,.6);
-      border: 1px solid rgba(148,163,184,.25);
-    }
-
-    .label { color: var(--muted); font-size: .9rem; }
-    #status { font-weight: 700; color: var(--warn); }
-    #result {
-      margin-top: 6px;
-      font-size: 1.05rem;
-      word-break: break-all;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .ok { color: var(--ok) !important; }
+    body { font-family: Arial, sans-serif; margin: 16px; max-width: 520px; margin-inline: auto; }
+    #reader { width: 100%; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    button { flex: 1; padding: 12px; border: 0; border-radius: 8px; font-weight: 700; color: #fff; }
+    #start { background: #2563eb; }
+    #stop { background: #dc2626; }
+    .box { margin-top: 12px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    #status { font-weight: 700; color: #a16207; }
+    #result { word-break: break-all; font-size: 1.05rem; margin-top: 6px; }
   </style>
 </head>
 <body>
-  <main class="app">
-    <h1>Leitor de Código de Barras (Teste no Celular)</h1>
+  <h2>Leitor de Código de Barras (Teste no Celular)</h2>
 
-    <div class="video-wrap">
-      <video id="video" autoplay muted playsinline></video>
-      <div class="scan-line"></div>
-    </div>
+  <div id="reader"></div>
 
-    <div class="controls">
-      <button id="btnStart">Iniciar</button>
-      <button id="btnStop">Parar</button>
-    </div>
+  <div class="row">
+    <button id="start">Iniciar câmera</button>
+    <button id="stop">Parar</button>
+  </div>
 
-    <div class="box">
-      <div class="label">Status</div>
-      <div id="status">Aguardando...</div>
-      <div class="label" style="margin-top:8px;">Resultado</div>
-      <div id="result">—</div>
-    </div>
-  </main>
+  <div class="box">
+    <div>Status: <span id="status">Aguardando...</span></div>
+    <div>Resultado: <div id="result">—</div></div>
+  </div>
 
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script>
-    const video = document.getElementById("video");
-    const btnStart = document.getElementById("btnStart");
-    const btnStop = document.getElementById("btnStop");
     const statusEl = document.getElementById("status");
     const resultEl = document.getElementById("result");
+    const btnStart = document.getElementById("start");
+    const btnStop = document.getElementById("stop");
 
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    let started = false;
-    let lastRead = "";
+    let scanner = null;
+    let running = false;
+    let lastCode = "";
 
-    async function iniciar() {
-      if (started) return;
-      started = true;
+    function setStatus(msg, ok = false) {
+      statusEl.textContent = msg;
+      statusEl.style.color = ok ? "#15803d" : "#a16207";
+    }
 
-      statusEl.textContent = "Iniciando câmera traseira...";
-      statusEl.classList.remove("ok");
-      resultEl.textContent = "—";
-      lastRead = "";
+    async function startScanner() {
+      if (running) return;
 
       try {
-        // Mobile first: força preferência por câmera traseira
-        const constraints = {
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
+        setStatus("Solicitando câmera...");
+        scanner = new Html5Qrcode("reader");
+
+        // Tenta abrir câmera traseira no celular
+        const cameraConfig = { facingMode: "environment" };
+
+        const config = {
+          fps: 10,
+          rememberLastUsedCamera: true,
+          // Barra (retângulo mais “horizontal” ajuda barcode)
+          qrbox: (vw, vh) => {
+            const w = Math.floor(Math.min(vw, 320));
+            const h = Math.floor(w * 0.45);
+            return { width: w, height: h };
+          },
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.ITF
+          ]
         };
 
-        statusEl.textContent = "Lendo código...";
-        codeReader.decodeFromConstraints(constraints, video, (result, err) => {
-          if (result) {
-            const texto = result.getText?.() || result.text || "";
-            if (texto && texto !== lastRead) {
-              lastRead = texto;
-              resultEl.textContent = texto;
-              statusEl.textContent = "Código detectado ✅";
-              statusEl.classList.add("ok");
+        await scanner.start(
+          cameraConfig,
+          config,
+          (decodedText) => {
+            if (decodedText !== lastCode) {
+              lastCode = decodedText;
+              resultEl.textContent = decodedText;
+              setStatus("Código detectado ✅", true);
               if (navigator.vibrate) navigator.vibrate(120);
             }
-          }
+          },
+          () => { /* ignora erros de frame sem código */ }
+        );
 
-          if (err && !(err instanceof ZXing.NotFoundException)) {
-            statusEl.textContent = "Erro: " + (err.message || err);
-            statusEl.classList.remove("ok");
-          }
-        });
-      } catch (e) {
-        started = false;
-        statusEl.textContent = "Falha ao iniciar: " + e.message;
-        statusEl.classList.remove("ok");
+        running = true;
+        setStatus("Lendo código...");
+      } catch (err) {
+        setStatus("Erro ao abrir câmera: " + (err?.message || err));
       }
     }
 
-    function parar() {
-      codeReader.reset();
-      started = false;
-      statusEl.textContent = "Leitura parada.";
-      statusEl.classList.remove("ok");
+    async function stopScanner() {
+      if (!scanner || !running) return;
+      await scanner.stop();
+      await scanner.clear();
+      running = false;
+      setStatus("Leitura parada.");
     }
 
-    btnStart.addEventListener("click", iniciar);
-    btnStop.addEventListener("click", parar);
+    btnStart.addEventListener("click", startScanner);
+    btnStop.addEventListener("click", stopScanner);
 
-    // Para câmera ao sair da aba
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) parar();
+      if (document.hidden) stopScanner();
     });
   </script>
 </body>
